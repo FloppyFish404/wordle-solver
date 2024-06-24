@@ -1,0 +1,3 @@
+*.swp
+playtester.py
+__pycache__/
