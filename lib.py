@@ -5,6 +5,17 @@ REMOTE_WORDS = "remote_words.txt"
 LOCAL_WORDS = 'words.txt'
 
 
+class Feedback:
+    def __init__(self):
+        self.greens = [None]*5
+        self.yellows = [[] for _ in range(5)]  # list of yellows for each position
+        self.grays = set()
+
+    def merge_feedback(self, feedback):
+        """ merge new feedback into existing feedback """
+        pass
+
+
 def fetch_remote_word_list():
     try:
         response = requests.get(URL, timeout=1)
@@ -35,8 +46,56 @@ def check_remote_local_words_match():
     return local == remote
 
 
-class Feedback:
-    def __init__(self):
-        self.greens = [None]*5
-        self.yellows = [None]*5
-        self.grays = set()
+def get_guess_feedback(guess, answer) -> Feedback:
+    """ Compares guess to answer and returns feedback """
+    feedback = Feedback()
+
+    for i in range(5):
+        if guess[i] == answer[i]:
+            feedback.greens[i] = answer[i]
+
+    for i, (g_let, a_let) in enumerate(zip(guess, answer)):
+        if g_let == a_let:
+            pass  # green, already dealt with above
+        elif g_let in answer:
+            if guess.count(g_let) > answer.count(g_let) > 0:
+                yellow_or_gray(feedback, i, g_let, guess, answer)
+            elif guess.count(g_let) <= answer.count(g_let):
+                length = min(guess.count(g_let), answer.count(g_let))
+                feedback.yellows[i].append(g_let * length)
+            else:
+                feedback.grays.add(g_let)
+        else:
+            feedback.grays.add(g_let)
+
+    return feedback
+
+
+def yellow_or_gray(feedback, i, let, guess, answer):
+    """
+    Logic for when both guess and answer contain multiple repeats of the 
+    same letter.
+    """
+    answer_remaining = answer.count(let) - feedback.greens.count(let)
+    for j, (g_let, a_let) in enumerate(zip(guess, answer)):
+        if j == i:
+            if answer_remaining > 0:
+                length = min(guess.count(g_let), answer.count(g_let))
+                feedback.yellows[i].append(let * length)
+        else:
+            feedback.grays.add(let)
+
+        if g_let == let and feedback.greens[i] != g_let:
+            answer_remaining -= 1  # noqa
+
+
+
+def possible_answer() -> bool:
+    check = True
+    return check
+
+
+def get_score() -> float:
+    return score
+
+
