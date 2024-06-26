@@ -50,18 +50,34 @@ def get_guess_feedback(guess, answer) -> Feedback:
     """ Compares guess to answer and returns feedback """
     feedback = Feedback()
 
+    def yellow_or_gray():
+        """
+        Logic for when both guess and answer contain multiple repeats of the same letter.
+        """
+        answer_remaining = answer_count - feedback.greens.count(g_let)
+        for j in range(5):
+            if j == i:
+                if answer_remaining > 0:
+                    length = min(guess_count, answer_count)
+                    feedback.yellows[i].append(g_let * length)
+            else:
+                feedback.grays.add(g_let)
+
+            if guess[j] == g_let and feedback.greens[i] != guess[j]:
+                answer_remaining -= 1
+
     for i in range(5):
         if guess[i] == answer[i]:
             feedback.greens[i] = answer[i]
 
     for i, (g_let, a_let) in enumerate(zip(guess, answer)):
         if g_let == a_let:
-            pass  # green, already dealt with above
+            feedback.greens[i] = answer[i]
         elif g_let in answer:
             guess_count = guess.count(g_let)
             answer_count = answer.count(g_let)
             if guess_count > answer_count > 0:
-                yellow_or_gray(feedback, i, g_let, guess, answer, guess_count, answer_count)
+                yellow_or_gray()
             elif guess_count <= answer_count:
                 length = min(guess_count, answer_count)
                 feedback.yellows[i].append(g_let * length)
@@ -72,23 +88,6 @@ def get_guess_feedback(guess, answer) -> Feedback:
 
     return feedback
 
-
-def yellow_or_gray(feedback, i, let, guess, answer, guess_count, answer_count):
-    """
-    Logic for when both guess and answer contain multiple repeats of the 
-    same letter.
-    """
-    answer_remaining = answer_count - feedback.greens.count(let)
-    for j, (g_let, a_let) in enumerate(zip(guess, answer)):
-        if j == i:
-            if answer_remaining > 0:
-                length = min(guess_count, answer_count)
-                feedback.yellows[i].append(let * length)
-        else:
-            feedback.grays.add(let)
-
-        if g_let == let and feedback.greens[i] != g_let:
-            answer_remaining -= 1  # noqa
 
 
 def possible_answer() -> bool:
