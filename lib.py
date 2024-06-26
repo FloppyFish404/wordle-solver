@@ -61,7 +61,7 @@ def get_guess_feedback(guess, answer) -> Feedback:
             guess_count = guess.count(g_let)
             answer_count = answer.count(g_let)
             if guess_count > answer_count > 0:
-                yellow_or_gray(feedback, i, g_let, guess, answer)
+                yellow_or_gray(feedback, i, g_let, guess, answer, guess_count, answer_count)
             elif guess_count <= answer_count:
                 length = min(guess_count, answer_count)
                 feedback.yellows[i].append(g_let * length)
@@ -73,16 +73,16 @@ def get_guess_feedback(guess, answer) -> Feedback:
     return feedback
 
 
-def yellow_or_gray(feedback, i, let, guess, answer):
+def yellow_or_gray(feedback, i, let, guess, answer, guess_count, answer_count):
     """
     Logic for when both guess and answer contain multiple repeats of the 
     same letter.
     """
-    answer_remaining = answer.count(let) - feedback.greens.count(let)
+    answer_remaining = answer_count - feedback.greens.count(let)
     for j, (g_let, a_let) in enumerate(zip(guess, answer)):
         if j == i:
             if answer_remaining > 0:
-                length = min(guess.count(g_let), answer.count(g_let))
+                length = min(guess_count, answer_count)
                 feedback.yellows[i].append(let * length)
         else:
             feedback.grays.add(let)
