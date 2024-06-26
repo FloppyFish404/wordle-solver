@@ -52,42 +52,33 @@ def get_guess_feedback(guess, answer) -> Feedback:
 
     def yellow_or_gray():
         """
-        Logic for when both guess and answer contain multiple repeats of the same letter.
+        Logic for when both guess and answer contain repeat letters, and guess contains more repeats of letter than answer. In a Wordle, yellows are assigned in order i.e. first come first served.
         """
-        answer_remaining = answer_count - feedback.greens.count(g_let)
+        greens_count = sum(1 for j in range(5) if guess[j] == answer[j])
+        yellows_remaining = answer_count - greens_count
+
         for j in range(5):
-            if j == i:
-                if answer_remaining > 0:
-                    length = min(guess_count, answer_count)
-                    feedback.yellows[i].append(g_let * length)
-            else:
-                feedback.grays.add(g_let)
-
-            if guess[j] == g_let and feedback.greens[i] != guess[j]:
-                answer_remaining -= 1
-
-    for i in range(5):
-        if guess[i] == answer[i]:
-            feedback.greens[i] = answer[i]
+            if j == i and yellows_remaining > 0:
+                length = min(guess_count, answer_count)
+                feedback.yellows[i].append(g_let * length)
+            if guess[j] == g_let and feedback.greens[j] != guess[j]:
+                yellows_remaining -= 1
 
     for i, (g_let, a_let) in enumerate(zip(guess, answer)):
         if g_let == a_let:
-            feedback.greens[i] = answer[i]
+            feedback.greens[i] = answer[i]  # GREEN
         elif g_let in answer:
-            guess_count = guess.count(g_let)
-            answer_count = answer.count(g_let)
-            if guess_count > answer_count > 0:
-                yellow_or_gray()
-            elif guess_count <= answer_count:
+            guess_count, answer_count = guess.count(g_let), answer.count(g_let)
+            if guess_count <= answer_count:  # YELLOW
                 length = min(guess_count, answer_count)
                 feedback.yellows[i].append(g_let * length)
             else:
-                feedback.grays.add(g_let)
+                yellow_or_gray()
+                feedback.grays.add(g_let)  # at least one gray g_let somewhere
         else:
-            feedback.grays.add(g_let)
+            feedback.grays.add(g_let)  # GRAY
 
     return feedback
-
 
 
 def possible_answer() -> bool:
