@@ -58,10 +58,12 @@ def get_guess_feedback(guess, answer) -> Feedback:
         if g_let == a_let:
             pass  # green, already dealt with above
         elif g_let in answer:
-            if guess.count(g_let) > answer.count(g_let) > 0:
+            guess_count = guess.count(g_let)
+            answer_count = answer.count(g_let)
+            if guess_count > answer_count > 0:
                 yellow_or_gray(feedback, i, g_let, guess, answer)
-            elif guess.count(g_let) <= answer.count(g_let):
-                length = min(guess.count(g_let), answer.count(g_let))
+            elif guess_count <= answer_count:
+                length = min(guess_count, answer_count)
                 feedback.yellows[i].append(g_let * length)
             else:
                 feedback.grays.add(g_let)
@@ -87,7 +89,6 @@ def yellow_or_gray(feedback, i, let, guess, answer):
 
         if g_let == let and feedback.greens[i] != g_let:
             answer_remaining -= 1  # noqa
-
 
 
 def possible_answer() -> bool:
