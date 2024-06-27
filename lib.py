@@ -52,16 +52,15 @@ def get_guess_feedback(guess, answer) -> Feedback:
 
     def yellow_or_gray():
         """
-        Logic for when both guess and answer contain repeat letters, and guess contains more repeats of letter than answer. In a Wordle, yellows are assigned in order i.e. first come first served.
+        Logic for when guess and answer both contain letter repeats, and guess contains more repeats of letter than answer. In a Wordle, yellows are assigned in order i.e. first come first served.
         """
         greens_count = sum(1 for j in range(5) if guess[j] == answer[j])
         yellows_remaining = answer_count - greens_count
 
         for j in range(5):
             if j == i and yellows_remaining > 0:
-                length = min(guess_count, answer_count)
-                feedback.yellows[i].append(g_let * length)
-            if guess[j] == g_let and feedback.greens[j] != guess[j]:
+                feedback.yellows[i].append(g_let * answer_count)
+            if guess[j] == g_let and guess[j] != answer[j]:
                 yellows_remaining -= 1
 
     for i, (g_let, a_let) in enumerate(zip(guess, answer)):
@@ -70,20 +69,35 @@ def get_guess_feedback(guess, answer) -> Feedback:
         elif g_let in answer:
             guess_count, answer_count = guess.count(g_let), answer.count(g_let)
             if guess_count <= answer_count:  # YELLOW
-                length = min(guess_count, answer_count)
-                feedback.yellows[i].append(g_let * length)
+                feedback.yellows[i].append(g_let * guess_count)
             else:
                 yellow_or_gray()
-                feedback.grays.add(g_let)  # at least one gray g_let somewhere
+                feedback.grays.add(g_let * (answer_count+1))
         else:
             feedback.grays.add(g_let)  # GRAY
 
     return feedback
 
 
-def possible_answer() -> bool:
-    check = True
-    return check
+def possible_answer(feedback, word) -> bool:
+    for i, green in enumerate(feedback.greens):
+        if green and green != word[i]:
+            return False
+    for i, pos in enumerate(feedback.yellows):
+        if pos:
+            for yel in pos:
+                if yel == word[i] or len(yel) > word.count(yel[0]):
+                    return False
+
+    let_count = {}
+    for let in word:
+        let_count[let] = let_count[let] + 1 if let in let_count else 1
+    print(let_count)
+
+    for gray in feedback.grays:
+        if gray[0] in let_count and len(gray) <= let_count[gray[0]]:
+            return False
+    return True
 
 
 def get_score() -> float:
