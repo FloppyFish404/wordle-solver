@@ -273,6 +273,122 @@ class TestPerformance:
         benchmark(benchmark_feedback)
 
 
+class TestMergeFeedback:
+    def test_merge_to_empty(self):
+        new = lib.Feedback()
+        new.greens = ['a', None, None, None, None]
+        new.yellows = [[], ['o'], [], [], []]
+        new.grays = set(['b'])
+
+        f = lib.Feedback()
+
+        f.merge_feedback(new)
+        assert f.greens == ['a', None, None, None, None]
+        assert f.yellows == [[], ['o'], [], [], []]
+        assert f.grays == set(['b'])
+
+    def test_merge_with_empty(self):
+        new = lib.Feedback()
+
+        f = lib.Feedback()
+        f.greens = ['a', None, None, None, None]
+        f.yellows = [[], ['o'], [], [], []]
+        f.grays = set(['b'])
+
+        f.merge_feedback(new)
+        assert f.greens == ['a', None, None, None, None]
+        assert f.yellows == [[], ['o'], [], [], []]
+        assert f.grays == set(['b'])
+
+    def test_merge_with_same(self):
+        greens = ['a', None, 'c', None, 'y']
+        yellows = [['d'], ['o'], [], [], []]
+        grays = set(['b', 'x', 'z'])
+
+        new = lib.Feedback()
+        new.greens = greens
+        new.yellows = yellows
+        new.grays = grays
+
+        f = lib.Feedback()
+        f.greens = greens
+        f.yellows = yellows
+        f.grays = grays
+
+        f.merge_feedback(new)
+        assert f.greens == greens
+        assert f.yellows == yellows
+        assert f.grays == grays
+
+    def test_merge_matching_greens(self):
+        new = lib.Feedback()
+        new.greens = ['a', 'b', 'c', 'd', 'e']
+
+        f = lib.Feedback()
+        f.greens = ['a', 'b', 'c', 'd', 'e']
+
+        f.merge_feedback(new)
+        assert f.greens == ['a', 'b', 'c', 'd', 'e']
+
+    def test_merge_nonmatching_greens(self):
+        new = lib.Feedback()
+        new.greens = ['a', 'b', 'c', 'z', 'e']
+
+        f = lib.Feedback()
+        f.greens = ['a', 'b', 'c', 'd', 'e']
+
+        with pytest.raises(ValueError):
+            f.merge_feedback(new)
+
+    def test_merge_yellows(self):
+        new = lib.Feedback()
+        new.yellows = [[], ['b'], [], ['e'], ['aaaa', 'b']]
+
+        f = lib.Feedback()
+        f.yellows = [['a'], ['bb'], [], [], ['aaa', 'b', 'f', 'eee']]
+
+        f.merge_feedback(new)
+        [yel.sort() for yel in f.yellows]
+        assert f.yellows == [['a'], ['bb'], [], ['e'], ['aaaa', 'b', 'eee', 'f']]
+
+    def test_merge_grays_conflict(self):
+        new = lib.Feedback()
+        new.grays = set(['a'])
+
+        f = lib.Feedback()
+        f.grays = set(['aa'])
+
+        with pytest.raises(ValueError):
+            f.merge_feedback(new)
+
+    def test_merge_grays(self):
+        new = lib.Feedback()
+        new.grays = set(['a', 'bb', 'c', 'd'])
+
+        f = lib.Feedback()
+        f.grays = set(['a', 'bb', 'd', 'e', 'f'])
+
+        f.merge_feedback(new)
+        assert f.grays == set(['a', 'bb', 'c', 'd', 'e', 'f'])
+
+    def test_merge_lots(self):
+        new = lib.Feedback()
+        new.greens = ['a', 'b', None, None, None]
+        new.yellows = [[], [], ['d'], [], []]
+        new.grays = set(['n', 'o'])
+
+        f = lib.Feedback()
+        f.greens = ['a', None, None, None, 'e']
+        f.yellows = [['e'], [], ['b'], ['d', 'a'], []]
+        f.grays = set(['f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'])
+
+        f.merge_feedback(new)
+        [yel.sort() for yel in f.yellows]
+        assert f.greens == ['a', 'b', None, None, 'e']
+        assert f.yellows == [['e'], [], ['b', 'd'], ['a', 'd'], []]
+        assert f.grays == set(['f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
+
+
 class TestIntegration:
     def test_erect_integration(self):
         pass
