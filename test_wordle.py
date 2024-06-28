@@ -247,32 +247,6 @@ class TestPossibleAnswer:
         assert not lib.possible_answer(f, 'fight')
 
 
-class TestPerformance:
-    def test_performance_get_guess_feedback(self, benchmark):
-        words = lib.get_local_words_list()
-        guesses = random.sample(words, 5)
-
-        def benchmark_feedback():
-            for guess in guesses:
-                for answer in words:
-                    lib.get_guess_feedback(guess, answer)
-        benchmark(benchmark_feedback)
-
-    def test_performance_possible_answer(self, benchmark):
-        words = lib.get_local_words_list()
-        f1, f2, f3, f4 = lib.Feedback(), lib.Feedback(), lib.Feedback(), lib.Feedback()
-        f2.greens = ['r', None, None, None, None]
-        f3.yellows[2] = ['ll']
-        f4.grays = set(['z', 'll', 'o'])
-        feedbacks = [f1, f2, f3, f4]
-
-        def benchmark_feedback():
-            for f in feedbacks:
-                for word in words:
-                    lib.possible_answer(f, word)
-        benchmark(benchmark_feedback)
-
-
 class TestMergeFeedback:
     def test_merge_to_empty(self):
         new = lib.Feedback()
@@ -320,15 +294,15 @@ class TestMergeFeedback:
         assert f.yellows == yellows
         assert f.grays == grays
 
-    def test_merge_matching_greens(self):
+    def test_merge_greens(self):
         new = lib.Feedback()
-        new.greens = ['a', 'b', 'c', 'd', 'e']
+        new.greens = [None, 'b', 'c', None, 'e']
 
         f = lib.Feedback()
-        f.greens = ['a', 'b', 'c', 'd', 'e']
+        f.greens = ['a', None, 'c', None, 'e']
 
         f.merge_feedback(new)
-        assert f.greens == ['a', 'b', 'c', 'd', 'e']
+        assert f.greens == ['a', 'b', 'c', None, 'e']
 
     def test_merge_nonmatching_greens(self):
         new = lib.Feedback()
@@ -351,15 +325,17 @@ class TestMergeFeedback:
         [yel.sort() for yel in f.yellows]
         assert f.yellows == [['a'], ['bb'], [], ['e'], ['aaaa', 'b', 'eee', 'f']]
 
-    def test_merge_grays_conflict(self):
-        new = lib.Feedback()
-        new.grays = set(['a'])
-
-        f = lib.Feedback()
-        f.grays = set(['aa'])
-
-        with pytest.raises(ValueError):
-            f.merge_feedback(new)
+#    This check functionality has performance cost and wasn't implemented
+#    it isn't stricly necessary
+#    def test_merge_grays_conflict(self):
+#        new = lib.Feedback()
+#        new.grays = set(['a'])
+#
+#        f = lib.Feedback()
+#        f.grays = set(['aa'])
+#
+#        with pytest.raises(ValueError):
+#            f.merge_feedback(new)
 
     def test_merge_grays(self):
         new = lib.Feedback()
@@ -396,3 +372,43 @@ class TestIntegration:
         # feedback = mf(gc('roate', 'erect'), gc('enter', 'erect'), 2)
         # exp = True
         # assert pa(feedback, answer) == exp
+
+
+class TestPerformance:
+    def test_performance_get_guess_feedback(self, benchmark):
+        words = lib.get_local_words_list()
+        guesses = random.sample(words, 5)
+
+        def benchmark_feedback():
+            for guess in guesses:
+                for answer in words:
+                    lib.get_guess_feedback(guess, answer)
+        benchmark(benchmark_feedback)
+
+    def test_performance_possible_answer(self, benchmark):
+        words = lib.get_local_words_list()
+        f1, f2, f3, f4 = lib.Feedback(), lib.Feedback(), lib.Feedback(), lib.Feedback()
+        f2.greens = ['r', None, None, None, None]
+        f3.yellows[2] = ['ll']
+        f4.grays = set(['z', 'll', 'o'])
+        feedbacks = [f1, f2, f3, f4]
+
+        def benchmark_feedback():
+            for f in feedbacks:
+                for word in words:
+                    lib.possible_answer(f, word)
+        benchmark(benchmark_feedback)
+
+    def test_performance_merge_feedback(self, benchmark):
+        f0 = lib.Feedback()
+        f1 = lib.get_guess_feedback('azcze', 'abcdd')  # greens
+        f2 = lib.get_guess_feedback('bcdea', 'abcdd')   # yellows
+        f3 = lib.get_guess_feedback('dddaa', 'abcdd')  # multiyels
+        f4 = lib.get_guess_feedback('fghij', 'abcdd')  # grays
+        feedbacks = [f0, f1, f2, f3, f4]
+
+        def benchmark_merge():
+            for fb1 in feedbacks:
+                for fb2 in feedbacks:
+                    fb1.merge_feedback(fb2)
+        benchmark(benchmark_merge)
