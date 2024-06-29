@@ -12,27 +12,32 @@ class Feedback:
         self.grays = set()
 
     def merge_feedback(self, feedback):
-        """ add new feedback to self"""
+        """ Add new feedback to self """
         # GREENS
         for i, green in enumerate(feedback.greens):
-            if self.greens[i] and green and self.greens[i] != green:
+            if (self.greens[i] and green) and (self.greens[i] != green):
                 raise ValueError('Unmatching green letters during feedback merge')  # noqa
-            self.greens[i] = green or self.greens[i]
+            self.greens[i] = green if green else self.greens[i]
 
         # YELLOWS
         for pos, (old_yels, new_yels) in enumerate(zip(self.yellows, feedback.yellows)):
             yel_union = set(old_yels).union(new_yels)
-
-            # Remove shorter yellows | set(['ee', 'e']) -> set(['ee'])
-            multi_yels = [yel for yel in yel_union if len(yel) > 1]
-            for long_yel in multi_yels:
-                for length in range(1, len(long_yel)):
-                    yel_union.discard(long_yel[0] * length)
-
-            self.yellows[pos] = list(yel_union)
+            self.yellows[pos] = list(self._filter_yellows(yel_union))
 
         # GRAYS
         self.grays.update(feedback.grays)
+
+    def _filter_yellows(self, yel_union):
+        """
+        Filter out shorter yellows of repeat letters
+        e.g. {'eee', 'ee', 'e'} -> {'eee'}
+        """
+        if len(yel_union) > 1:
+            long_yellows = [yel for yel in yel_union if len(yel) > 1]
+            for long_yel in long_yellows:
+                for length in range(1, len(long_yel)):
+                    yel_union.discard(long_yel[0] * length)
+        return yel_union
 
 
 def fetch_remote_word_list():
