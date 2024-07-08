@@ -136,5 +136,55 @@ def possible_answer(feedback, word) -> bool:
     return True
 
 
-def get_score() -> float:
-    return score
+def get_possible_answers(feedback, answer_pool) -> list:
+    l = []
+    for answer in answer_pool:
+        if possible_answer(feedback, answer):
+            l.append(answer)
+    return l
+
+
+def find_best_guess(guess_pool, answer_pool):
+    if len(answer_pool) < 3:
+        return answer_pool[0]
+    print(f'running find_best_guess() with guess pool {guess_pool} and answer pool {answer_pool}')
+    guess_turns = {}
+    for guess in guess_pool:
+        turns = turns_until_solved(guess, guess_pool, answer_pool)
+        guess_turns[guess] = turns
+    print(f'\n\n all guess_turns are {guess_turns}')
+    print('the best guess found was', min(guess_turns, key=guess_turns.get), '\n')
+    return min(guess_turns, key=guess_turns.get)
+
+
+def turns_until_solved(guess, guess_pool, answer_pool, turn=1):
+    """
+    Returns a float of the number of predicted turns it will take to reach the
+    answer, provided the best guess is entered every time.
+
+    The best guess is the one that leads to the lowest mean average number
+    of turns to solve the wordle.
+    """
+    scenarios = {}  # key = number of turns, val = permuations
+    print(f'running turns_until_solved(), guess is {guess}, guess pool is {guess_pool}, answer pool is {answer_pool}')
+
+    print(f'running get_scenarios_recursive(), guess is {guess}, answer pool is {answer_pool}, turn is {turn}')
+    for answer in answer_pool:
+        print(f'\tchecking guess {guess} for answer {answer}')
+        if guess != answer:
+            trial_feedback = get_guess_feedback(guess, answer)
+            possible_answers = get_possible_answers(trial_feedback, answer_pool)
+            print(f'if answer was {answer}, possible_answers {possible_answers}')
+            best_guess = find_best_guess(guess_pool, possible_answers)
+            print('found best guess as', best_guess)
+            turn = turns_until_solved(best_guess, guess_pool, possible_answers, turn+1)
+        print(f'scenario found, adding {turn} turns to scenario')
+        scenarios[turn] = scenarios[turn] + 1 if turn in scenarios else 1
+
+    tot_turns, permutations = 0, 0
+    for turn in scenarios:
+        tot_turns += turn * scenarios[turn]
+        permutations += scenarios[turn]
+    average = tot_turns / permutations
+    print(f'for {guess}, all scenarios are {scenarios}, the average is {average}\n')
+    return average
