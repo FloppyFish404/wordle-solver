@@ -1,4 +1,5 @@
 import requests
+from collections import Counter
 
 URL = "https://gist.githubusercontent.com/cfreshman/d97dbe7004522f7bc52ed2a6e22e2c04/raw/633058e11743065ad2822e1d2e6505682a01a9e6/wordle-nyt-words-14855.txt"
 REMOTE_WORDS = "remote_words.txt"
@@ -38,6 +39,15 @@ class Feedback:
                 for length in range(1, len(long_yel)):
                     yel_union.discard(long_yel[0] * length)
         return yel_union
+
+    def is_same(self, feedback):
+        if self.greens != feedback.greens:
+            return False
+        if any(set(y1) != set(y2) for y1, y2 in zip(self.yellows, feedback.yellows)):
+            return False
+        if self.grays != feedback.grays:
+            return False
+        return True
 
 
 def fetch_remote_word_list():
@@ -137,27 +147,31 @@ def possible_answer(feedback, word) -> bool:
 
 
 def get_possible_answers(feedback, answer_pool) -> list:
-    l = []
+    l = []  # noqa
     for answer in answer_pool:
         if possible_answer(feedback, answer):
             l.append(answer)
     return l
 
 
-def find_best_guess(guess_pool, answer_pool):
-    if len(answer_pool) < 3:
-        return answer_pool[0]
-    print(f'running find_best_guess() with guess pool {guess_pool} and answer pool {answer_pool}')
+def find_best_guess(guess_pool, answer_pool, feedback=None):
+    """
+    returns the guess in guess_pool that will result in the least
+    amount of turns to solve the remainder of the wordle puzzle
+    """
+
+    if len(answer_pool) <= 3:
+        return answer_pool[0]  # any potential answer will be best guess
     guess_turns = {}
     for guess in guess_pool:
-        turns = turns_until_solved(guess, guess_pool, answer_pool)
+        # print(feedback.grays, 'here')
+        turns = turns_until_solved(guess, guess_pool, answer_pool, feedback)
         guess_turns[guess] = turns
     print(f'\n\n all guess_turns are {guess_turns}')
-    print('the best guess found was', min(guess_turns, key=guess_turns.get), '\n')
     return min(guess_turns, key=guess_turns.get)
 
 
-def turns_until_solved(guess, guess_pool, answer_pool, turn=1):
+def turns_until_solved(guess, guesspool, answerpool, existing_feedback=None, turn=1):
     """
     Returns a float of the number of predicted turns it will take to reach the
     answer, provided the best guess is entered every time.
@@ -165,6 +179,74 @@ def turns_until_solved(guess, guess_pool, answer_pool, turn=1):
     The best guess is the one that leads to the lowest mean average number
     of turns to solve the wordle.
     """
+    feedbacks = {}
+    expected_turns = {}
+
+    # GET FEEDBACK
+    for potential_answer in answerpool:
+        if guess == potential_answer:
+            expected_turns[turn] = 1
+        else:
+            new_feedback = get_guess_feedback(guess, potential_answer)
+            if existing_feedback:
+                new_feedback.merge_feedback(existing_feedback)
+
+            # APPEND TO FEEDBACK COUNTER
+            for f in feedbacks:
+                if f.is_same(new_feedback):
+                    feedbacks[f] += 1
+                    break
+            else:
+                feedbacks[new_feedback] = 1
+
+    print('FEEDBACKS SET', guess, turn)
+    for f in feedbacks:
+        print(feedbacks[f])
+        print(f.greens)
+        print(f.yellows)
+        print(f.grays)
+        print()
+
+    for f in feedbacks:
+        possible_answers = get_possible_answers(f, answerpool)
+        # print('possible ans', len(possible_answers))
+        if len(possible_answers) == 0:
+            raise IndexError('No possible answers with this set of feedback')
+        elif len(possible_answers) == 1:
+            turns = turn + 1 # 1 possible answer to guess next turn
+        elif len(possible_answers) == 2:
+            turns = turn + 1.5  # 1/2 chance of guessing right
+        elif len(possible_answers) == 3:
+            turns = turn + 2 # 1/3 +0 turns, 1/3 +1 turn, 1/3 +2 turns
+        elif len(possible_answers) == len(answerpool):
+            return 6  # dummy value, don't use this guess it sucks
+        else:
+            best_guess = find_best_guess(guesspool, possible_answers, f)
+            turns = turns_until_solved(best_guess, guesspool, answerpool, f)
+
+        expected_turns[turns] = expected_turns.get(turns, 0) + feedbacks[f]
+
+    # print(expected_turns)
+    return sum(k*v for k, v in expected_turns.items()) / sum(expected_turns.values())
+
+
+def turns_until_solved_prototype(guess, guess_pool, answer_pool, turn=1):
+    """
+    Returns a float of the number of predicted turns it will take to reach the
+    answer, provided the best guess is entered every time.
+
+    The best guess is the one that leads to the lowest mean average number
+    of turns to solve the wordle.
+    """
+    def find_average_all_scenarios(scenarios):
+        tot_turns, permutations = 0, 0
+        for turn in scenarios:
+            tot_turns += turn * scenarios[turn]
+            permutations += scenarios[turn]
+        average = tot_turns / permutations
+        print(f'for {guess}, all scenarios are {scenarios}, the average is {average}\n')
+        return average
+
     scenarios = {}  # key = number of turns, val = permuations
     print(f'running turns_until_solved(), guess is {guess}, guess pool is {guess_pool}, answer pool is {answer_pool}')
 
@@ -179,12 +261,32 @@ def turns_until_solved(guess, guess_pool, answer_pool, turn=1):
             print('found best guess as', best_guess)
             turn = turns_until_solved(best_guess, guess_pool, possible_answers, turn+1)
         print(f'scenario found, adding {turn} turns to scenario')
-        scenarios[turn] = scenarios[turn] + 1 if turn in scenarios else 1
+        prob = 1/len(answer_pool)
+        print(f'probability is {prob}')
+        scenarios[turn] = scenarios[turn] + prob if turn in scenarios else prob
+    return find_average_all_scenarios(scenarios)
 
-    tot_turns, permutations = 0, 0
-    for turn in scenarios:
-        tot_turns += turn * scenarios[turn]
-        permutations += scenarios[turn]
-    average = tot_turns / permutations
-    print(f'for {guess}, all scenarios are {scenarios}, the average is {average}\n')
-    return average
+
+def calculate_expected_turns(guesses, answers):
+    expected_values = {}
+
+    for guess in guesses:
+        scenario_counts = Counter()
+
+        for answer in answers:
+            feedback = get_guess_feedback(guess, answer)
+            scenario_counts[feedback] += 1
+
+        total_scenarios = sum(scenario_counts.values())
+        expected_value = 0
+
+        for feedback, count in scenario_counts.items():
+            probability = count / total_scenarios
+            turns = calculate_turns_for_feedback(feedback, guess, answers)  # Implement this function
+            expected_value += probability * turns
+
+        expected_values[guess] = expected_value
+
+    return min(expected_values, key=expected_values.get)
+
+

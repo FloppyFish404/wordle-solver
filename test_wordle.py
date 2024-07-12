@@ -365,6 +365,155 @@ class TestMergeFeedback:
         assert f.grays == set(['f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o'])
 
 
+class TestIsSameFeedback:
+    def test_empty(self):
+        f1 = lib.Feedback()
+        f2 = lib.Feedback()
+        assert f1.is_same(f2)
+        assert f2.is_same(f1)
+
+    def test_all_same(self):
+        f1 = lib.Feedback()
+        f1.greens = ['a', None, 'c', 'd', None]
+        f1.yellows = [['a'], [], ['c', 'dd'], [], ['e', 'f', 'a']]
+        f1.grays = set(['ppp', 'oo', 'c', 'b', 'a'])
+        f2 = lib.Feedback()
+        f2.greens = ['a', None, 'c', 'd', None]
+        f2.yellows = [['a'], [], ['dd', 'c'], [], ['e', 'f', 'a']]
+        f2.grays = set(['a', 'b', 'c', 'oo', 'ppp'])
+        assert f1.is_same(f2)
+        assert f2.is_same(f1)
+
+    def test_diff_greens(self):
+        f1 = lib.Feedback()
+        f1.greens = ['a', None, 'c', 'd', 'e']
+        f2 = lib.Feedback()
+        f2.greens = ['a', None, 'c', 'd', None]
+        assert not f1.is_same(f2)
+        assert not f2.is_same(f1)
+
+    def test_diff_yellows(self):
+        f1 = lib.Feedback()
+        f1.yellows = [['a'], [], ['c', 'd'], [], ['e', 'f', 'a']]
+        f2 = lib.Feedback()
+        f2.yellows = [['a'], [], ['d', 'c'], [], ['e', 'ff', 'a']]
+        assert not f1.is_same(f2)
+        assert not f2.is_same(f1)
+
+    def test_diff_grays(self):
+        f1 = lib.Feedback()
+        f1.grays = set(['ppp', 'oo', 'c', 'b', 'a'])
+        f2 = lib.Feedback()
+        f2.grays = set(['a', 'b', 'c', 'o', 'ppp'])
+        assert not f1.is_same(f2)
+        assert not f2.is_same(f1)
+
+
+class TestFindBestGuess:
+    def test_one_answer(self):
+        guesses = ['right']
+        answers = ['right']
+        best = lib.find_best_guess(guesses, answers)
+        assert best == 'right'
+
+    def test_two_answer(self):
+        guesses = ['right', 'wrong']
+        answers = ['right']
+        best = lib.find_best_guess(guesses, answers)
+        assert best == 'right'
+
+    def test_same_scores(self):
+        guesses = ['night', 'sight', 'light', 'lawns']
+        answers = ['night', 'sight', 'light']
+        # night scenarios = {1:1, 2:1, 3:1} = 2
+        # sight scenarios = {1:1, 2:1, 3:1} = 2
+        # light scenarios = {1:1, 2:1, 3:1} = 2
+        # lawns scenarios = {2:3}           = 2
+        best = lib.find_best_guess(guesses, answers)
+        assert best == 'night'
+
+
+class TestTurnsUntilSolved:
+    def test_guess_right_answer(self):
+        answerpool = ['apple']
+        guesspool = ['apple']
+        turns = lib.turns_until_solved('apple', guesspool, answerpool)
+        assert turns == 1
+
+    def test_guess_wrong_answer(self):
+        answerpool = ['apple']
+        guesspool = ['plank', 'apple']
+        turns = lib.turns_until_solved('plank', guesspool, answerpool)
+        assert turns == 2
+
+    def test_two_answers(self):
+        answerpool = ['oneor', 'twooo']
+        guesspool = ['twooo', 'oneor']
+        turns = lib.turns_until_solved('oneor', guesspool, answerpool)
+        assert turns == 1.5
+
+    def test_guess_three_answers(self):
+        answerpool = ['light', 'night', 'sight']
+        guesspool = ['light', 'night', 'sight']
+        turns = lib.turns_until_solved('light', guesspool, answerpool)
+        assert turns == 2
+
+    def test_nonanswer_three(self):
+        answerpool = ['light', 'night', 'sight']
+        guesspool = ['light', 'night', 'sight', 'lawns']
+        turns = lib.turns_until_solved('lawns', guesspool, answerpool)
+        assert turns == 2
+
+    def test_nonanswer_four(self):
+        answerpool = ['light', 'night', 'sight', 'might']
+        guesspool = ['light', 'night', 'sight', 'lawns']
+        turns = lib.turns_until_solved('lawns', guesspool, answerpool)
+        assert turns == 2
+        # scenarios = {1:0, 2:4}
+
+    def test_asdf(self):
+        answerpool = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd']
+        guesspool = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd']
+        turns = lib.turns_until_solved('aaaaa', guesspool, answerpool)
+        assert turns == 2.5
+        # scenarios = {1:1, 2:0, 3:3}       10/4 = 2.5
+
+    def test_four(self):
+        f = lib.Feedback()
+        f.grays = set(['p', 'o', 'y'])
+        answerpool = ['smile', 'catch', 'great', 'smash']
+        guesspool = ['smile', 'catch', 'great', 'smash']
+        turns = lib.turns_until_solved('smile', guesspool, answerpool, f, turn=2)
+        assert turns == 2.75
+        # scenarios = {2:1, 3:3}       11/4 = 3
+        # 2 turn - smile                (right answer)
+        # 3 turn - smash, great, catch  (only possible answer is itself)
+
+    def test_len7_all2turns(self):
+        guesspool = lib.get_local_words_list()
+        answerpool = ['smile', 'frown', 'catch', 'great', 'throw', 'smash']
+        turns = lib.turns_until_solved('cgtsa', guesspool, answerpool)
+        assert turns == 2
+
+    def test_len7_some2turns(self):
+        guesspool = lib.get_local_words_list()
+        answerpool = ['smile', 'frown', 'catch', 'great', 'throw', 'smash']
+        turns = lib.turns_until_solved('grope', guesspool, answerpool)
+        assert round(turns, 3) == 2.167
+
+    def test_kondo(self):
+        guesspool = ['smile', 'catch', 'great', 'throw', 'smash', 'kondo']
+        answerpool = ['smile', 'catch', 'great', 'throw', 'smash']
+        turns = lib.turns_until_solved('kondo', guesspool, answerpool)
+        assert turns == 0
+
+    def test_len7_poopy(self):
+        guesspool = lib.get_local_words_list()
+        answerpool = ['smile', 'frown', 'catch', 'great', 'throw', 'smash']
+        turns = lib.turns_until_solved('poopy', guesspool, answerpool)
+        assert round(turns, 3)  == 2.583
+
+
 class TestIntegration:
     def test_erect_integration(self):
         pass
