@@ -502,10 +502,11 @@ class TestTurnsUntilSolved:
         assert round(turns, 3) == 2.167
 
     def test_kondo(self):
-        guesspool = ['smile', 'catch', 'great', 'throw', 'smash', 'kondo']
-        answerpool = ['smile', 'catch', 'great', 'throw', 'smash']
+        guesspool = ['smile', 'catch', 'great', 'smash', 'kondo']
+        answerpool = ['smile', 'catch', 'great', 'smash']
         turns = lib.turns_until_solved('kondo', guesspool, answerpool)
-        assert turns == 0
+        assert turns == 2.75
+        # {2:1, 3:3} -> 11/4 -> 2.75
 
     def test_len7_poopy(self):
         guesspool = lib.get_local_words_list()
