@@ -409,6 +409,28 @@ class TestIsSameFeedback:
         assert not f2.is_same(f1)
 
 
+class TestFindSmartGuesses:
+    def test_len_3(self):
+        guesses = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd', 'eeeee']
+        answers = ['abbda', 'ccaab', 'ababc']
+        common = lib.CommonLetters(answers)
+        smart_guesses = common.get_smart_guesses(guesses, 3)
+        assert smart_guesses == ['aaaaa', 'bbbbb', 'ccccc']
+
+    def test_repeat_letters(self):
+        guesses = ['laugh', 'crime', 'fight', 'lawns', 'lines']
+        answers = ['light', 'wight', 'sight', 'night']
+        common = lib.CommonLetters(answers)
+        smart_guesses = common.get_smart_guesses(guesses, 3)
+        assert smart_guesses == ['lawns', 'lines', 'laugh']
+
+    def test_smart(self):
+        words = lib.get_local_words_list()
+        common = lib.CommonLetters(words)
+        smart_guesses = common.get_smart_guesses(words, 10)
+        assert smart_guesses[0] == 'tares'
+
+
 class TestFindBestGuess:
     def test_one_answer(self):
         guesses = ['right']
@@ -471,12 +493,13 @@ class TestTurnsUntilSolved:
         assert turns == 2
         # scenarios = {1:0, 2:4}
 
-    def test_asdf(self):
+    def test_abcd(self):
         answerpool = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd']
         guesspool = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd']
         turns = lib.turns_until_solved('aaaaa', guesspool, answerpool)
         assert turns == 2.5
-        # scenarios = {1:1, 2:0, 3:3}       10/4 = 2.5
+        # scenarios = {1:1, 2:1, 3:1, 4:1}       10/4 = 2.5
+        #          -> {1:1, 3:3}
 
     def test_four(self):
         f = lib.Feedback()
@@ -508,11 +531,38 @@ class TestTurnsUntilSolved:
         assert turns == 2.75
         # {2:1, 3:3} -> 11/4 -> 2.75
 
-    def test_len7_poopy(self):
+    def test_all_guesses(self):
         guesspool = lib.get_local_words_list()
         answerpool = ['smile', 'frown', 'catch', 'great', 'throw', 'smash']
         turns = lib.turns_until_solved('poopy', guesspool, answerpool)
-        assert round(turns, 3)  == 2.583
+        assert round(turns, 3) == 2.583
+
+    def test_all_answers(self):
+        guesspool = ['abcde', 'defgh', 'ijklm', 'nopqr', 'tuvwy' 'xyzaa']
+        answerpool = lib.get_local_words_list()
+        best_guess = lib.find_best_guess(guesspool, answerpool)
+        turns = lib.turns_until_solved(best_guess, guesspool, answerpool)
+        assert round(turns, 3) == 2.583
+
+    def test_similar_answers(self):
+        answerpool = ['aeons', 'aeros', 'aloes', 'alose', 'arose',
+                      'neosa', 'oases', 'oaves', 'oxeas', 'paseo',
+                      'psoae', 'soare', 'soave', 'stoae', 'toeas', 
+                      'zoeas']
+        guesspool = answerpool
+        best_guess = lib.find_best_guess(guesspool, answerpool)
+        turns = lib.turns_until_solved(best_guess, guesspool, answerpool)
+        assert round(turns, 3) == 2.583
+
+    def test_random_subset_30(self):
+        random.seed(42)
+        words = lib.get_local_words_list()
+        wordpool = []
+        max_size = 30
+        for i in range(max_size):
+            wordpool.append(random.choice(words))
+        best_guess = lib.find_best_guess(wordpool, wordpool)
+        lib.turns_until_solved(best_guess, wordpool, wordpool)
 
 
 class TestIntegration:
