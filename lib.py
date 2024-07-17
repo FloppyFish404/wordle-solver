@@ -1,5 +1,8 @@
 import requests
+import logging
 from collections import Counter
+
+logging.basicConfig(level=logging.WARNING, format='%(message)s')
 
 URL = ("https://gist.githubusercontent.com/cfreshman/"
        "d97dbe7004522f7bc52ed2a6e22e2c04/raw/"
@@ -17,7 +20,7 @@ class Feedback:
         self.yellows = [[] for _ in range(5)]  # list of yellows for each position
         self.grays = set()
 
-    def merge_feedback(self, feedback):
+    def merge(self, feedback):
         """ Add new feedback to self """
         # GREENS
         for i, green in enumerate(feedback.greens):
@@ -111,19 +114,19 @@ class CommonLetters:
         return [guess for guess, _ in guess_scores.most_common(size)]
 
     def print_smart_guesses(self, guess_scores, size=None):
-        print()
-        print('COMMON LETTERS:')
-        print(self.common_letters)
-        print('\n')
-        print('LETTERS IN POSITION:')
+        logging.debug('')
+        logging.debug('COMMON LETTERS:')
+        logging.debug(f'{self.common_letters}')
+        logging.debug('\n')
+        logging.debug('LETTERS IN POSITION:')
         for i, lets in enumerate(self.let_position):
-            print('POSITION', i+1)
-            print(lets)
-            print()
-        print()
-        print('GUESS SCORES:')
+            logging.debug(f'POSITION {i+1}')
+            logging.debug(f'{lets}')
+            logging.debug('')
+        logging.debug('')
+        logging.debug('GUESS SCORES:')
         for g_score in guess_scores.most_common(size):
-            print(g_score)
+            logging.debug(f'{g_score}')
 
 
 def fetch_remote_word_list():
@@ -234,8 +237,16 @@ def find_best_guess(guess_pool, answer_pool, feedback=None,
                     guesses_tried=None):
     """
     Returns the guess in either guess_pool or answer_pool that will result in
-    the least amount of turns to solve the remainder of the wordle puzzle
+    the least amount of turns to solve the remainder of the wordle puzzle.
+
+    Used with high frequency in recursive function time_until_solved() making
+    up the majority of the computational time
     """
+
+    # answerpool < 17 - solve exactly with entire wordpool
+    # answerpool < 100 - solve for approx 10 best guesses using common letters
+    # answerpool < X - find av_len_answerpool for all Y best guesses?
+    # answerpool == 14,000, find av_len_answerpool for Z best guesses
 
     if len(answer_pool) <= 2:
         return answer_pool[0]  # any potential answer will be best guess
@@ -271,7 +282,7 @@ def find_best_guess(guess_pool, answer_pool, feedback=None,
         if turns == best_case_turns:
             return guess
         guess_turns[guess] = turns
-    print(f'\n\n all guess_turns are {guess_turns}')
+    logging.debug(f'\n\n all guess_turns are {guess_turns}')
     return min(guess_turns, key=guess_turns.get)
 
 
@@ -310,7 +321,7 @@ def turns_until_solved(guess, guesspool, answerpool, existing_feedback=None,
         else:
             new_feedback = get_guess_feedback(guess, potential_answer)
             if existing_feedback:
-                new_feedback.merge_feedback(existing_feedback)
+                new_feedback.merge(existing_feedback)
 
             # APPEND TO FEEDBACK COUNTER
             for f in feedbacks:
@@ -320,19 +331,18 @@ def turns_until_solved(guess, guesspool, answerpool, existing_feedback=None,
             else:
                 feedbacks[new_feedback] = 1
 
-    print('FEEDBACKS SET', guess, turn)
+    logging.debug(f'FEEDBACKS SET {guess} {turn}')
     for f in feedbacks:
         possible_answers = get_possible_answers(f, answerpool)
-        print('count', feedbacks[f], possible_answers)
-        print(f.greens)
-        print(f.yellows)
-        print(f.grays)
-        print()
-        # print('possible ans', len(possible_answers))
+        logging.debug(f'count {feedbacks[f]}  {possible_answers}') 
+        logging.debug(f'{f.greens}')
+        logging.debug(f'{f.yellows}')
+        logging.debug(f'{f.grays}')
+        # logging.debug('possible ans', len(possible_answers))
         if len(possible_answers) == 0:
             raise IndexError('No possible answers with this set of feedback')
         best_guess = find_best_guess(guesspool, possible_answers, f, tried_guesses)
-        print('found best guess as', best_guess)
+        logging.debug(f'for above feedback, best guess next turn is {best_guess}')
         turns = turns_until_solved(best_guess, guesspool, possible_answers,
                                    f, tried_guesses, turn+1)
         expected_turns[turns] = expected_turns.get(turns, 0) + feedbacks[f]
@@ -340,14 +350,20 @@ def turns_until_solved(guess, guesspool, answerpool, existing_feedback=None,
     average_turns = (sum(k*v for k, v in expected_turns.items())
                      / sum(expected_turns.values()))
 
-    print(expected_turns, average_turns, '\n\n')
+    logging.debug(f'{expected_turns} {average_turns}\n\n')
     return average_turns
+
+
+def show_result(guesses, turn, ANSWER):
+    print(f'the answer was {ANSWER}')
+    print(f'best guesses found were {guesses}')
+    print(f'took {turn} turns to solve')
 
 
 """
 TO DO:
-prevent infinite recursion (don't guess same guess)
-    should be a stack of guesses, use length of this as turn?
-implement entropy/score function
+implement find_best_guess for multiple answerpool sizes
 change Feedback.is_same into __eq__
+implement entropy/score function? if needed
+implemenet memoisation
 """
