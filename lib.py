@@ -242,35 +242,38 @@ def find_best_guess(guess_pool, answer_pool, feedback=None,
     Used with high frequency in recursive function time_until_solved() making
     up the majority of the computational time
     """
+    # FILTERING GUESSPOOL AND ANSWERPOOL FOR EFFICIENCY
+    if answer_pool < 17:  # solve exactly with entire wordpool
 
-    # answerpool < 17 - solve exactly with entire wordpool
-    # answerpool < 100 - solve for approx 10 best guesses using common letters
+        guesses = answer_pool  # search answerpool first
+        best_case_turns = (2*len(answer_pool))-1 / len(answer_pool)
+        best_guess, best_score = find_exact_best_guess(guesses, answer_pool, feedback,
+                                                       guesses_tried, best_case_turns)
+        if best_score == best_case_turns:
+            return best_guess
+
+        guesses = remove_possible_answers(guess_pool)  # search guess pool
+        best_case_turns = 2.0  # best case for non answer_pool guess
+        best_guess2, best_score2 = find_exact_best_guess(guesses, answer_pool, feedback,
+                                                         guesses_tried, best_case_turns)
+        if (best_score2 == best_case_turns or best_score2 < best_score):
+            return best_guess2
+        else:
+            return best_guess
+
+    elif answerpool < 100:  # solve exactly for ~10 optimised guesses
     # answerpool < X - find av_len_answerpool for all Y best guesses?
     # answerpool == 14,000, find av_len_answerpool for Z best guesses
 
     if len(answer_pool) <= 2:
         return answer_pool[0]  # any potential answer will be best guess
 
-    # Initial filter of guess pool
-    if guesses_tried:
-        filtered = []
-        for guess in guess_pool:
-            if guess not in guesses_tried and guess not in answer_pool:
-                filtered.append(guess)
-        guess_pool = filtered
 
     guess_turns = {}
 
     # Test all guesses in answerpool
     best_case_turns = (2*len(answer_pool))-1 / len(answer_pool)
-    for guess in answer_pool:
-        turns = turns_until_solved(guess, guess_pool, answer_pool,
-                                   feedback, guesses_tried)
-        if turns == best_case_turns:
-            return guess
-        guess_turns[guess] = turns
 
-    best_case_turns = 2.0  # best case for non answer_pool guess
     best_answer_guess = min(guess_turns, key=guess_turns.get)
     if guess_turns[best_answer_guess] <= best_case_turns:
         return best_answer_guess
@@ -284,6 +287,49 @@ def find_best_guess(guess_pool, answer_pool, feedback=None,
         guess_turns[guess] = turns
     logging.debug(f'\n\n all guess_turns are {guess_turns}')
     return min(guess_turns, key=guess_turns.get)
+
+
+def remove_possible_answers(guess_pool, answer_pool, guesses_tried):
+    filtered = []
+    for guess in guess_pool:
+        if guess not in guesses_tried and guess not in answer_pool:
+            filtered.append(guess)
+    return filtered
+
+def filter_guess_pool(guess_pool, answer_pool, size):
+    """
+    Filters list of potential guesses to a given size based off
+    common letters in the answerpool to to optimise find_best_guess.
+    """
+    common = CommonLetters(answer_pool)
+    smart_guesses = common.get_smart_guesses(guess_pool, size)
+    return smart_guesses
+
+
+def find_exact_best_guess(guess_pool, answer_pool, feedback,
+                          guesses_tried, best_case_turns):
+    """
+    Returns the best guess and its expected turns until solved as a tuple
+    """
+    max_size = 100
+    if len(answer_pool) > max_size:
+        raise ValueError("answer pool is too large to solve exactly, \
+                         this will take too long")
+    guess_turns = {}
+    for guess in answer_pool:
+        turns = turns_until_solved(guess, guess_pool, answer_pool,
+                                   feedback, guesses_tried)
+        if turns == best_case_turns:
+            return (guess, turns)
+        guess_turns[guess] = turns
+    best_guess = min(guess_turns, key=guess_turns.get)
+    return (best_guess, guess_turns[best_guess])
+
+
+def find_approximate_best_guess(guess_pool, answer_pool):
+    pass
+
+
 
 
 def turns_until_solved(guess, guesspool, answerpool, existing_feedback=None,
