@@ -8,7 +8,48 @@ URL = ("https://gist.githubusercontent.com/cfreshman/"
        "d97dbe7004522f7bc52ed2a6e22e2c04/raw/"
        "633058e11743065ad2822e1d2e6505682a01a9e6/wordle-nyt-words-14855.txt")
 REMOTE_WORDS = "remote_words.txt"
-LOCAL_WORDS = 'words.txt'
+LOCAL_WORDS = 'words.txt'  # contains all guesses and answers
+LOCAL_GUESSES = 'guesses.txt'  # guesses that aren't possible answers
+LOCAL_ANSWERS = 'answers.txt'  # possible answers
+
+
+def fetch_remote_word_list():
+    try:
+        response = requests.get(URL, timeout=1)
+        return response
+    except requests.ConnectionError:
+        return None
+
+
+def write_remote_word_list(response):
+    if response:
+        with open(REMOTE_WORDS, 'w') as file:
+            file.write(response.text)
+
+
+def check_remote_local_words_match():
+    with open(REMOTE_WORDS) as f:
+        remote = f.readlines()
+    with open(LOCAL_WORDS) as f:
+        local = f.readlines()
+    return local == remote
+
+
+def get_word_list(filename):
+    with open(filename) as f:
+        words = f.readlines()
+    for i, x in enumerate(words):
+        words[i] = x.strip()
+    return words
+
+def get_answer_list():  # noqa
+    return get_word_list(LOCAL_ANSWERS)
+
+def get_guess_list():  # noqa
+    return get_word_list(LOCAL_GUESSES)
+
+def get_all_words_list():  # noqa
+    return get_word_list(LOCAL_WORDS)
 
 
 class Feedback:
@@ -56,107 +97,6 @@ class Feedback:
         if self.grays != feedback.grays:
             return False
         return True
-
-
-class CommonLetters:
-    """
-    Calculates information regarding letter distribution in a given answerpool,
-    to find guesses likely to be most relevant
-    """
-    def __init__(self, answer_pool):
-        self.answer_pool = answer_pool
-        self.common_letters = Counter()
-        self.let_position = [Counter() for _ in range(5)]
-        for ans in answer_pool:
-            for i, let in enumerate(ans):
-                self.let_position[i][let] += 1
-                self.common_letters[let] += 1
-
-        for pos in self.let_position:
-            if len(pos) == 1:  # greens, no new information, not good to guess
-                let = next(iter(pos.keys()))
-                self.common_letters[let] -= pos[let]
-
-    def calc_smart_guess_scores(self, guess_pool):
-        """
-        Returns guesses that have lots of relevant letters
-        so are likely to greatly reduce size of answerpool.
-
-        No bonus is given if guess is a possible answers.
-
-        Most likely usage is to opimise guess_pool for find_best_guess()
-        which is computationally expensive as it utilises recursive function
-        turns_until_solved() # O(?) time?
-        """
-        guess_scores = Counter()
-        for guess in guess_pool:
-            score = 0
-            for i, guess_let in enumerate(guess):
-
-                # relevance of letter in position
-                if len(self.let_position[i]) != 1:  # greens, so no new info
-                    size = self.let_position[i].total()
-                    position_let_count = self.let_position[i][guess_let]
-                    score += position_let_count * size // size 
-
-                # relevance of letter not in position
-                if guess_let not in set(guess[0:i]):
-                    size = self.common_letters.total()
-                    total_let_count = self.common_letters[guess_let]
-                    position_let_count = self.let_position[i][guess_let]
-                    score += total_let_count * size // size
-
-            guess_scores[guess] = score
-        return guess_scores
-
-    def get_smart_guesses(self, guess_pool, size):
-        guess_scores = self.calc_smart_guess_scores(guess_pool)
-        return [guess for guess, _ in guess_scores.most_common(size)]
-
-    def print_smart_guesses(self, guess_scores, size=None):
-        logging.debug('')
-        logging.debug('COMMON LETTERS:')
-        logging.debug(f'{self.common_letters}')
-        logging.debug('\n')
-        logging.debug('LETTERS IN POSITION:')
-        for i, lets in enumerate(self.let_position):
-            logging.debug(f'POSITION {i+1}')
-            logging.debug(f'{lets}')
-            logging.debug('')
-        logging.debug('')
-        logging.debug('GUESS SCORES:')
-        for g_score in guess_scores.most_common(size):
-            logging.debug(f'{g_score}')
-
-
-def fetch_remote_word_list():
-    try:
-        response = requests.get(URL, timeout=1)
-        return response
-    except requests.ConnectionError:
-        return None
-
-
-def write_remote_word_list(response):
-    if response:
-        with open(REMOTE_WORDS, 'w') as file:
-            file.write(response.text)
-
-
-def get_local_words_list():
-    with open(LOCAL_WORDS) as f:
-        words = f.readlines()
-    for i, x in enumerate(words):
-        words[i] = x.strip()
-    return words
-
-
-def check_remote_local_words_match():
-    with open(REMOTE_WORDS) as f:
-        remote = f.readlines()
-    with open(LOCAL_WORDS) as f:
-        local = f.readlines()
-    return local == remote
 
 
 def get_guess_feedback(guess, answer) -> Feedback:
@@ -233,60 +173,114 @@ def get_possible_answers(feedback, answer_pool) -> list:
     return l
 
 
+def count_possible_answers(feedback, answer_pool) -> int:
+    count = 0
+    for answer in answer_pool:
+        if possible_answer(feedback, answer):
+            count += 1
+    return count
+
+
+class CommonLetters:
+    """
+    Calculates information regarding letter distribution in a given answerpool,
+    to find guesses likely to be most relevant
+    """
+    def __init__(self, answer_pool):
+        self.answer_pool = answer_pool
+        self.common_letters = Counter()
+        self.let_position = [Counter() for _ in range(5)]
+        for ans in answer_pool:
+            for i, let in enumerate(ans):
+                self.let_position[i][let] += 1
+                self.common_letters[let] += 1
+
+        for pos in self.let_position:
+            if len(pos) == 1:  # greens, no new information, not good to guess
+                let = next(iter(pos.keys()))
+                self.common_letters[let] -= pos[let]
+
+    def calc_smart_guess_scores(self, guess_pool):
+        """
+        Returns guesses that have lots of relevant letters
+        so are likely to greatly reduce size of answerpool.
+
+        No bonus is given if guess is a possible answers.
+
+        Most likely usage is to opimise guess_pool for find_best_guess()
+        which is computationally expensive as it utilises recursive function
+        turns_until_solved() # O(?) time?
+        """
+        guess_scores = Counter()
+        for guess in guess_pool:
+            score = 0
+            for i, guess_let in enumerate(guess):
+
+                # relevance of letter in position
+                if len(self.let_position[i]) != 1:  # greens, so no new info
+                    size = self.let_position[i].total()
+                    position_let_count = self.let_position[i][guess_let]
+                    score += position_let_count * size // size 
+
+                # relevance of letter not in position
+                if guess_let not in set(guess[0:i]):
+                    size = self.common_letters.total()
+                    total_let_count = self.common_letters[guess_let]
+                    position_let_count = self.let_position[i][guess_let]
+                    score += total_let_count * size // size
+
+            guess_scores[guess] = score
+        return guess_scores
+
+    def get_smart_guesses(self, guess_pool, size):
+        guess_scores = self.calc_smart_guess_scores(guess_pool)
+        return [guess for guess, _ in guess_scores.most_common(size)]
+
+    def print_smart_guesses(self, guess_scores, size=None):
+        logging.debug('')
+        logging.debug('COMMON LETTERS:')
+        logging.debug(f'{self.common_letters}')
+        logging.debug('\n')
+        logging.debug('LETTERS IN POSITION:')
+        for i, lets in enumerate(self.let_position):
+            logging.debug(f'POSITION {i+1}')
+            logging.debug(f'{lets}')
+            logging.debug('')
+        logging.debug('')
+        logging.debug('GUESS SCORES:')
+        for g_score in guess_scores.most_common(size):
+            logging.debug(f'{g_score}')
+
+
 def find_best_guess(guess_pool, answer_pool, feedback=None,
                     guesses_tried=None):
     """
     Returns the guess in either guess_pool or answer_pool that will result in
     the least amount of turns to solve the remainder of the wordle puzzle.
 
-    Used with high frequency in recursive function time_until_solved() making
-    up the majority of the computational time
     """
-    # FILTERING GUESSPOOL AND ANSWERPOOL FOR EFFICIENCY
-    if answer_pool < 17:  # solve exactly with entire wordpool
-
-        guesses = answer_pool  # search answerpool first
-        best_case_turns = (2*len(answer_pool))-1 / len(answer_pool)
-        best_guess, best_score = find_exact_best_guess(guesses, answer_pool, feedback,
-                                                       guesses_tried, best_case_turns)
-        if best_score == best_case_turns:
-            return best_guess
-
-        guesses = remove_possible_answers(guess_pool)  # search guess pool
-        best_case_turns = 2.0  # best case for non answer_pool guess
-        best_guess2, best_score2 = find_exact_best_guess(guesses, answer_pool, feedback,
-                                                         guesses_tried, best_case_turns)
-        if (best_score2 == best_case_turns or best_score2 < best_score):
-            return best_guess2
-        else:
-            return best_guess
-
-    elif answerpool < 100:  # solve exactly for ~10 optimised guesses
-    # answerpool < X - find av_len_answerpool for all Y best guesses?
-    # answerpool == 14,000, find av_len_answerpool for Z best guesses
-
     if len(answer_pool) <= 2:
         return answer_pool[0]  # any potential answer will be best guess
 
+    # solve exactly with entire wordpool
+    elif len(answer_pool) < 17:
+        best_guess = find_exact_best_guess(guess_pool, answer_pool, feedback, guesses_tried)
 
-    guess_turns = {}
+    # solve exactly for ~10 optimised guesses
+    elif len(answer_pool) < 100:
+        n_guesses = 10
+        smart_guesses = filter_guess_pool(guess_pool, answer_pool, n_guesses)
+        best_guess = find_exact_best_guess(guess_pool, answer_pool, feedback,
+                                           guesses_tried, smart_guesses)
 
-    # Test all guesses in answerpool
-    best_case_turns = (2*len(answer_pool))-1 / len(answer_pool)
+    # solve approximately for 100 optimised guesses
+    else:
+        n_guesses = 100
+        smart_guesses = filter_guess_pool(guess_pool, answer_pool, n_guesses)
+        smart_guesses = smart_guesses[0].extend(smart_guesses[1])
+        best_guess = find_approximate_best_guess(smart_guesses, answer_pool, feedback)
 
-    best_answer_guess = min(guess_turns, key=guess_turns.get)
-    if guess_turns[best_answer_guess] <= best_case_turns:
-        return best_answer_guess
-
-    # Test other guesses
-    for guess in guess_pool:
-        turns = turns_until_solved(guess, guess_pool, answer_pool,
-                                   feedback, guesses_tried)
-        if turns == best_case_turns:
-            return guess
-        guess_turns[guess] = turns
-    logging.debug(f'\n\n all guess_turns are {guess_turns}')
-    return min(guess_turns, key=guess_turns.get)
+    return best_guess
 
 
 def remove_possible_answers(guess_pool, answer_pool, guesses_tried):
@@ -296,40 +290,83 @@ def remove_possible_answers(guess_pool, answer_pool, guesses_tried):
             filtered.append(guess)
     return filtered
 
+
 def filter_guess_pool(guess_pool, answer_pool, size):
     """
     Filters list of potential guesses to a given size based off
     common letters in the answerpool to to optimise find_best_guess.
+
+    format of smart guesses [[answers], [non_answers]]
     """
     common = CommonLetters(answer_pool)
-    smart_guesses = common.get_smart_guesses(guess_pool, size)
+    smart_guesses = []
+    smart_guesses.append(common.get_smart_guesses(answer_pool, size//2))
+    smart_guesses.append(common.get_smart_guesses(guess_pool, size//2))
     return smart_guesses
 
 
 def find_exact_best_guess(guess_pool, answer_pool, feedback,
-                          guesses_tried, best_case_turns):
+                          guesses_tried, smart_guesses=None):
     """
-    Returns the best guess and its expected turns until solved as a tuple
+    Returns the exact best guess and its expected turns until solved based on
+    the complete probability tree of scenarios.
+
+    Used with high frequency in recursive function time_until_solved() making
+    up the majority of the computational time
     """
     max_size = 100
     if len(answer_pool) > max_size:
         raise ValueError("answer pool is too large to solve exactly, \
                          this will take too long")
+    if smart_guesses:
+        non_answer_guesses = smart_guesses[0]
+        answer_guesses = smart_guesses[1]
+    else:
+        non_answer_guesses = guess_pool
+        answer_guesses = answer_pool
+
     guess_turns = {}
-    for guess in answer_pool:
+
+    best_case_turns = (2*len(answer_pool))-1 / len(answer_pool)
+    for guess in answer_guesses:
         turns = turns_until_solved(guess, guess_pool, answer_pool,
                                    feedback, guesses_tried)
         if turns == best_case_turns:
-            return (guess, turns)
+            return guess
         guess_turns[guess] = turns
-    best_guess = min(guess_turns, key=guess_turns.get)
-    return (best_guess, guess_turns[best_guess])
+
+    best_case_turns = 2.0  # best case for non answer_pool guess
+    for guess in non_answer_guesses:
+        turns = turns_until_solved(guess, guess_pool, answer_pool,
+                                   feedback, guesses_tried)
+        if turns == best_case_turns:
+            return guess
+        guess_turns[guess] = turns
+    return min(guess_turns, key=guess_turns.get)
 
 
-def find_approximate_best_guess(guess_pool, answer_pool):
-    pass
-
-
+def find_approximate_best_guess(guess_pool, answer_pool, old_feedback):
+    """
+    Returns the best guess, as defined by the smallest average length of the
+    resulting answerpool the next turn.
+    """
+    answers = set(answer_pool)
+    guess_scores = {}
+    for guess in guess_pool:
+        total_score = 0
+        feedbacks = Counter()
+        for answer in answer_pool:
+            f = get_guess_feedback(guess, answer)
+            f.merge_feedback(old_feedback)
+            feedbacks[f] += 1
+        for f in feedbacks:
+            total_score += count_possible_answers(f, answer_pool) * feedbacks[f]
+        score = total_score / len(answer_pool)
+        if guess in answers:  # approx bonus score given to potential answers
+            score -= 1
+        guess_scores[guess] = score
+    guess_scores = sorted(guess_scores.items(), key=lambda item: item[1], reverse=True)
+    return guess_scores
 
 
 def turns_until_solved(guess, guesspool, answerpool, existing_feedback=None,
@@ -409,7 +446,10 @@ def show_result(guesses, turn, ANSWER):
 """
 TO DO:
 implement find_best_guess for multiple answerpool sizes
-change Feedback.is_same into __eq__
+TEST THE SHIT OUT OF THIS
+change Feedback.is_same into __eq__ and __hash__
 implement entropy/score function? if needed
 implemenet memoisation
+implement options for main, evaluate a guess,
+change code to work for answers list
 """
