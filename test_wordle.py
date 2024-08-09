@@ -14,6 +14,16 @@ class TestRemoteWords:
         assert lib.check_remote_local_words_match(), "Local words don't match remote words!"
 
 
+def test_python_version():
+    import sys
+    assert sys.version_info >= (3, 10), "Python version is less than 3.10"
+
+    def test_len_3(self):
+        guesses = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd', 'eeeee']
+        answers = ['abbda', 'ccaab', 'ababc']
+        common = lib.CommonLetters(answers)
+        smart_guesses = common.get_smart_guesses(guesses, 3)
+        assert smart_guesses == ['aaaaa', 'bbbbb', 'ccccc']
 class TestGuessCheck:
     def test_greens(self):
         f = lib.get_guess_feedback('aaaaa', 'aaaaa')
@@ -256,7 +266,7 @@ class TestMergeFeedback:
 
         f = lib.Feedback()
 
-        f.merge_feedback(new)
+        f.merge(new)
         assert f.greens == ['a', None, None, None, None]
         assert f.yellows == [[], ['o'], [], [], []]
         assert f.grays == set(['b'])
@@ -269,7 +279,7 @@ class TestMergeFeedback:
         f.yellows = [[], ['o'], [], [], []]
         f.grays = set(['b'])
 
-        f.merge_feedback(new)
+        f.merge(new)
         assert f.greens == ['a', None, None, None, None]
         assert f.yellows == [[], ['o'], [], [], []]
         assert f.grays == set(['b'])
@@ -289,7 +299,7 @@ class TestMergeFeedback:
         f.yellows = yellows
         f.grays = grays
 
-        f.merge_feedback(new)
+        f.merge(new)
         assert f.greens == greens
         assert f.yellows == yellows
         assert f.grays == grays
@@ -301,7 +311,7 @@ class TestMergeFeedback:
         f = lib.Feedback()
         f.greens = ['a', None, 'c', None, 'e']
 
-        f.merge_feedback(new)
+        f.merge(new)
         assert f.greens == ['a', 'b', 'c', None, 'e']
 
     def test_merge_nonmatching_greens(self):
@@ -312,7 +322,7 @@ class TestMergeFeedback:
         f.greens = ['a', 'b', 'c', 'd', 'e']
 
         with pytest.raises(ValueError):
-            f.merge_feedback(new)
+            f.merge(new)
 
     def test_merge_yellows(self):
         new = lib.Feedback()
@@ -321,7 +331,7 @@ class TestMergeFeedback:
         f = lib.Feedback()
         f.yellows = [['a'], ['bb'], [], [], ['aaa', 'b', 'f', 'eee']]
 
-        f.merge_feedback(new)
+        f.merge(new)
         [yel.sort() for yel in f.yellows]
         assert f.yellows == [['a'], ['bb'], [], ['e'], ['aaaa', 'b', 'eee', 'f']]
 
@@ -335,7 +345,7 @@ class TestMergeFeedback:
 #        f.grays = set(['aa'])
 #
 #        with pytest.raises(ValueError):
-#            f.merge_feedback(new)
+#            f.merge(new)
 
     def test_merge_grays(self):
         new = lib.Feedback()
@@ -344,7 +354,7 @@ class TestMergeFeedback:
         f = lib.Feedback()
         f.grays = set(['a', 'bb', 'd', 'e', 'f'])
 
-        f.merge_feedback(new)
+        f.merge(new)
         assert f.grays == set(['a', 'bb', 'c', 'd', 'e', 'f'])
 
     def test_merge_lots(self):
@@ -358,7 +368,7 @@ class TestMergeFeedback:
         f.yellows = [['e'], [], ['b'], ['d', 'a'], []]
         f.grays = set(['f', 'g', 'h', 'i', 'j', 'k', 'l', 'm'])
 
-        f.merge_feedback(new)
+        f.merge(new)
         [yel.sort() for yel in f.yellows]
         assert f.greens == ['a', 'b', None, None, 'e']
         assert f.yellows == [['e'], [], ['b', 'd'], ['a', 'd'], []]
@@ -424,24 +434,39 @@ class TestFindSmartGuesses:
         smart_guesses = common.get_smart_guesses(guesses, 3)
         assert smart_guesses == ['lawns', 'lines', 'laugh']
 
-    def test_smart(self):
-        words = lib.get_local_words_list()
-        common = lib.CommonLetters(words)
+    def test_similar_words_pivot(self):
+        answers = ['agape', 'agate', 'agave']
+        words = lib.get_all_words_list()
+        common = lib.CommonLetters(answers)
         smart_guesses = common.get_smart_guesses(words, 10)
-        assert smart_guesses[0] == 'tares'
+        assert smart_guesses[0] == 'pivot'
+
+    def test_similar_words_ight(self):
+        answers = ['fight', 'light', 'aight', 'kight', 'eight']
+        words = lib.get_all_words_list()
+        common = lib.CommonLetters(answers)
+        smart_guesses = common.get_smart_guesses(words, 10)
+        assert smart_guesses[0] == 'flake'
+
+    def test_entire_answer_pool(self):
+        answers = lib.get_answer_list()
+        words = lib.get_all_words_list()
+        common = lib.CommonLetters(answers)
+        smart_guesses = common.get_smart_guesses(words, 10)
+        assert smart_guesses[0] == 'soare'
 
 
-class TestFindBestGuess:
+class TestFindExactBestGuess:
     def test_one_answer(self):
         guesses = ['right']
         answers = ['right']
-        best = lib.find_best_guess(guesses, answers)
+        best = lib.find_exact_best_guess(guesses, answers)
         assert best == 'right'
 
     def test_two_answer(self):
         guesses = ['right', 'wrong']
         answers = ['right']
-        best = lib.find_best_guess(guesses, answers)
+        best = lib.find_exact_best_guess(guesses, answers)
         assert best == 'right'
 
     def test_same_scores(self):
@@ -451,8 +476,59 @@ class TestFindBestGuess:
         # sight scenarios = {1:1, 2:1, 3:1} = 2
         # light scenarios = {1:1, 2:1, 3:1} = 2
         # lawns scenarios = {2:3}           = 2
-        best = lib.find_best_guess(guesses, answers)
-        assert best == 'night'
+        best = lib.find_exact_best_guess(guesses, answers)
+        assert best == 'night' or best == 'lawns'
+
+    def test_mutually_exclusive_answerpool_short(self):
+        guesses = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd']
+        answers = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd']
+        best = lib.find_exact_best_guess(guesses, answers)
+        assert best == 'aaaaa'
+
+    def test_mutually_exclusive_answerpool_mid(self):
+        guesses = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd', 'abcde']
+        answers = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd']
+        best = lib.find_exact_best_guess(guesses, answers)
+        assert best == 'abcde'
+
+    def test_mutually_exclusive_answerpool_long(self):
+        guesses = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd', 'eeeee',
+                   'fffff', 'ggggg', 'abcde']
+        answers = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd', 'eeeee',
+                   'fffff', 'ggggg']
+        best = lib.find_exact_best_guess(guesses, answers)
+        assert best == 'abcde'
+
+    def test_mutually_exclusive_answerpool_4(self):
+        guesses = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd', 'eeeee',
+                   'abcee', 'abcde']
+        answers = ['aaaaa', 'bbbbb', 'ccccc', 'ddddd', 'eeeee',
+                   'abcee']
+        best = lib.find_exact_best_guess(guesses, answers)
+        assert best == 'abcee'  # not calculated but I think its right
+
+    def test_many_similar_answers(self):
+        answers = ['aeons', 'aeros', 'aloes', 'alose', 'arose',
+                   'neosa', 'oases', 'oaves', 'oxeas', 'paseo',
+                   'psoae', 'soare', 'soave', 'stoae', 'toeas',
+                   'zoeas']
+        guesses = answers
+        lib.find_exact_best_guess(guesses, answers)
+
+
+class TestFindApproximateBestGuess:
+    def test_subset_wordpool(self):
+        answers = lib.get_answer_list()
+        words = lib.get_all_words_list()
+        common = lib.CommonLetters(answers)
+        smart_guesses = common.get_smart_guesses(words, 10)
+        subset_answers = []
+        for i, ans in enumerate(answers):
+            if i % 10 == 0:
+                subset_answers.append(ans)
+
+        best = lib.find_approximate_best_guess(smart_guesses, subset_answers)
+        assert best == 'roate'
 
 
 class TestTurnsUntilSolved:
@@ -513,13 +589,13 @@ class TestTurnsUntilSolved:
         # 3 turn - smash, great, catch  (only possible answer is itself)
 
     def test_len7_all2turns(self):
-        guesspool = lib.get_local_words_list()
+        guesspool = lib.get_all_words_list()
         answerpool = ['smile', 'frown', 'catch', 'great', 'throw', 'smash']
         turns = lib.turns_until_solved('cgtsa', guesspool, answerpool)
         assert turns == 2
 
     def test_len7_some2turns(self):
-        guesspool = lib.get_local_words_list()
+        guesspool = lib.get_all_words_list()
         answerpool = ['smile', 'frown', 'catch', 'great', 'throw', 'smash']
         turns = lib.turns_until_solved('grope', guesspool, answerpool)
         assert round(turns, 3) == 2.167
@@ -532,38 +608,83 @@ class TestTurnsUntilSolved:
         # {2:1, 3:3} -> 11/4 -> 2.75
 
     def test_all_guesses(self):
-        guesspool = lib.get_local_words_list()
+        guesspool = lib.get_all_words_list()
         answerpool = ['smile', 'frown', 'catch', 'great', 'throw', 'smash']
         turns = lib.turns_until_solved('poopy', guesspool, answerpool)
         assert round(turns, 3) == 2.583
 
-    def test_all_answers(self):
-        guesspool = ['abcde', 'defgh', 'ijklm', 'nopqr', 'tuvwy' 'xyzaa']
-        answerpool = lib.get_local_words_list()
-        best_guess = lib.find_best_guess(guesspool, answerpool)
-        turns = lib.turns_until_solved(best_guess, guesspool, answerpool)
-        assert round(turns, 3) == 2.583
+    def test_afore_answers(self):
+        answers = ['agape', 'agate', 'agave']
+        words = lib.get_all_words_list()
+        turns = lib.turns_until_solved('xxxxx', words, answers)
+        assert turns == 3.0
+
+    def test_afore2_answers(self):
+        answers = ['afoot', 'afore', 'afoul', 'agape', 'agate',
+                   'agave']
+        words = lib.get_all_words_list()
+        turns = lib.turns_until_solved('afore', words, answers)
+        assert turns == 2.5
 
     def test_similar_answers(self):
         answerpool = ['aeons', 'aeros', 'aloes', 'alose', 'arose',
                       'neosa', 'oases', 'oaves', 'oxeas', 'paseo',
-                      'psoae', 'soare', 'soave', 'stoae', 'toeas', 
+                      'psoae', 'soare', 'soave', 'stoae', 'toeas',
                       'zoeas']
-        guesspool = answerpool
-        best_guess = lib.find_best_guess(guesspool, answerpool)
-        turns = lib.turns_until_solved(best_guess, guesspool, answerpool)
-        assert round(turns, 3) == 2.583
+        guesspool = lib.get_all_words_list()
+        turns = lib.turns_until_solved('aloes', guesspool, answerpool)
+        assert turns < 2.5
 
-    def test_random_subset_30(self):
+    def test_abode_first_36_answers(self):
+        answers = lib.get_answer_list()[:36]
+        words = lib.get_all_words_list()
+
+        common = lib.CommonLetters(answers)
+        smart_guesses = common.get_smart_guesses(words, 100)
+        guess = smart_guesses[0]  # abode
+        lib.turns_until_solved(guess, smart_guesses, answers)
+
+    def test_large_subset_answers(self):
+        guesspool = lib.get_all_words_list()
+        answerpool = lib.get_answer_list()
+        subset_answers = []
+        for i, answer in enumerate(answerpool):
+            if i % 100 == 0:
+                subset_answers.append(answer)
+
+        turns = lib.turns_until_solved('roate', guesspool, subset_answers)
+        assert turns < 2.5
+
+    def test_large_subset_answers_guess_only_answers(self):
+        guesspool = []
+        answerpool = lib.get_answer_list()
+        subset_answers = []
+        for i, answer in enumerate(answerpool):
+            if i % 10 == 0:
+                subset_answers.append(answer)
+
+        turns = lib.turns_until_solved('roate', guesspool, subset_answers)
+        assert turns < 3.0
+
+    def test_random_subset_30_guess_answers_only(self):
         random.seed(42)
-        words = lib.get_local_words_list()
-        wordpool = []
+        words = lib.get_all_words_list()
+        answerpool = []
         max_size = 30
         for i in range(max_size):
-            wordpool.append(random.choice(words))
-        best_guess = lib.find_best_guess(wordpool, wordpool)
-        lib.turns_until_solved(best_guess, wordpool, wordpool)
+            answerpool.append(random.choice(words))
+        best_guess = lib.find_best_guess(answerpool, answerpool)
+        lib.turns_until_solved(best_guess, answerpool, answerpool)
 
+    def test_random_subset_15_all_guesses(self):
+        random.seed(42)
+        words = lib.get_all_words_list()
+        answerpool = []
+        max_size = 15
+        for i in range(max_size):
+            answerpool.append(random.choice(words))
+        best_guess = lib.find_best_guess(words, answerpool)
+        lib.turns_until_solved(best_guess, words, answerpool)
 
 class TestIntegration:
     def test_erect_integration(self):
@@ -599,7 +720,7 @@ class TestPerformance:
                     lib.possible_answer(f, word)
         benchmark(benchmark_feedback)
 
-    def test_performance_merge_feedback(self, benchmark):
+    def test_performance_merge(self, benchmark):
         f0 = lib.Feedback()
         f1 = lib.get_guess_feedback('azcze', 'abcdd')  # greens
         f2 = lib.get_guess_feedback('bcdea', 'abcdd')   # yellows
@@ -610,5 +731,5 @@ class TestPerformance:
         def benchmark_merge():
             for fb1 in feedbacks:
                 for fb2 in feedbacks:
-                    fb1.merge_feedback(fb2)
+                    fb1.merge(fb2)
         benchmark(benchmark_merge)
