@@ -507,6 +507,19 @@ class TestFindExactBestGuess:
         best = lib.find_exact_best_guess(guesses, answers)
         assert best == 'abcee'  # not calculated but I think its right
 
+    def test_similar_words(self):
+        ANSWER = 'mated'
+        words = lib.get_all_words_list()
+        f = lib.get_guess_feedback('roate', ANSWER)
+        f.merge(lib.get_guess_feedback('sated', ANSWER))
+        guesses_tried = set('roate', 'sated')
+        possible_answers = ['bated', 'dated', 'fated', 
+                            'gated', 'hated', 'mated']
+        smart_guesses = lib.filter_guess_pool(words, answers, 100)
+        g = lib.find_exact_best_guess(words, possible_answers, f, 
+                                      guesses_tried, smart_guesses)
+        # g == 'baghs' - this test takes forever :/
+
     def test_many_similar_answers(self):
         answers = ['aeons', 'aeros', 'aloes', 'alose', 'arose',
                    'neosa', 'oases', 'oaves', 'oxeas', 'paseo',
@@ -697,7 +710,7 @@ class TestIntegration:
 
 class TestPerformance:
     def test_performance_get_guess_feedback(self, benchmark):
-        words = lib.get_local_words_list()
+        words = lib.get_all_words_list()
         guesses = random.sample(words, 5)
 
         def benchmark_feedback():
@@ -707,7 +720,7 @@ class TestPerformance:
         benchmark(benchmark_feedback)
 
     def test_performance_possible_answer(self, benchmark):
-        words = lib.get_local_words_list()
+        words = lib.get_all_words_list()
         f1, f2, f3, f4 = lib.Feedback(), lib.Feedback(), lib.Feedback(), lib.Feedback()
         f2.greens = ['r', None, None, None, None]
         f3.yellows[2] = ['ll']

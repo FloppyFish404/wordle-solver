@@ -2,8 +2,21 @@ import requests
 import logging
 import math
 from collections import Counter
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver import ActionChains
+from bs4 import BeautifulSoup
+from datetime import datetime
+import json
+import time
 
-logging.basicConfig(level=logging.WARNING, format='%(message)s')
+# logging.basicConfig(level=logging.WARNING, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 URL = ("https://gist.githubusercontent.com/cfreshman/"
        "d97dbe7004522f7bc52ed2a6e22e2c04/raw/"
@@ -260,7 +273,7 @@ def find_best_guess(guess_pool, answer_pool, feedback=None,
     the least amount of turns to solve the remainder of the wordle puzzle.
 
     """
-    SMART_EXACT_CUTOFF = 16
+    SMART_EXACT_CUTOFF = 5
     NUM_EXACT_SMART_GUESSES = 50 + (SMART_EXACT_CUTOFF - len(answer_pool))
     NUM_APPROX_SMART_GUESSES = 100
 
@@ -278,6 +291,7 @@ def find_best_guess(guess_pool, answer_pool, feedback=None,
     else:
         smart_guesses = filter_guess_pool(guess_pool, answer_pool, NUM_APPROX_SMART_GUESSES)
         smart_guesses = smart_guesses[0] + smart_guesses[1]  # answers + non_answers
+        logging.debug(f'{smart_guesses}')
         best_guess = find_approximate_best_guess(smart_guesses, answer_pool, feedback)
 
     return best_guess
@@ -322,13 +336,14 @@ def get_approximate_guess_scores(guess_pool, answer_pool, old_feedback=None):
         for answer in answer_pool:
             f = get_guess_feedback(guess, answer)
             if old_feedback:
-                f.merge_feedback(old_feedback)
+                f.merge(old_feedback)
             feedbacks[f] += 1
         for f in feedbacks:
             total_score += count_possible_answers(f, answer_pool) * feedbacks[f]
         score = total_score / len(answer_pool)
         if guess in answers:  # approx bonus score given to potential answers
             score -= 1
+        logging.debug(f'{guess} {score}')
         guess_scores[guess] = score
     guess_scores = sorted(guess_scores.items(), key=lambda item: item[1])
     return guess_scores
@@ -345,10 +360,12 @@ def find_exact_best_guess(guess_pool, answer_pool, existing_feedback=None,
     Returns the exact best guess and its expected turns until solved based on
     the complete probability tree of scenarios.
 
-    Used with high frequency in recursive function time_until_solved() making
+    Used with high frequency in recursive function turns_until_solved() making
     up the majority of the computational time
 
     Will return an ideal non_answer guess before an ideal answer guess
+
+    Unfortunately suffers from combinatorial explosion, O(n!).
     """
     ANSWERPOOL_SIZE_WARNING = 100
     if len(answer_pool) > ANSWERPOOL_SIZE_WARNING:
@@ -510,18 +527,48 @@ def store_guess_score(new_guess, new_score, filename):
         print(k, v)
 
 
+
+def fetch_official_answer_and_numb():
+    """
+    Opens a chrome browser to get the current dates wordle answer as set by the New York Times
+    """
+    options = Options()
+    options.add_argument('--incognito')
+    options.add_argument('disable-popup-blocking')
+    options.add_argument('--headless')  # invisible browser
+
+    date = datetime.today().strftime('%Y-%m-%d')
+    driver = webdriver.Chrome(options=options)
+    driver.get('https://www.nytimes.com/svc/wordle/v2/{}.json' .format(date))
+    soup = BeautifulSoup(driver.page_source, features="html.parser")
+    json_data = json.loads(soup.find("body").text)
+    ANSWER = json_data['solution']
+    wordle_iter = json_data['days_since_launch']
+    driver.quit()
+
+    return [ANSWER, wordle_iter]
+
+
 def show_result(guesses, turn, ANSWER):
-    print(f'the answer was {ANSWER}')
-    print(f'best guesses found were {guesses}')
-    print(f'took {turn} turns to solve')
+    print(f'Answer: {ANSWER}')
+    print(f'Guesses found: {guesses}')
+    print(f'Solved in {turn} turns')
+
+
+
 
 
 """
+build up the main function
+- function to retrieve from the official wordle site. 
+- more front end stuff, for nicer display % bar?
+- memoisation for performance?
+
+
 TO DO:
 implement find_best_guess for multiple answerpool sizes
 TEST THE SHIT OUT OF THIS
 change Feedback.is_same into __eq__ and __hash__
-implement entropy/score function? if needed
 implemenet memoisation
 implement options for main, evaluate a guess,
 change code to work for answers list
