@@ -366,6 +366,10 @@ def find_exact_best_guess(guess_pool, answer_pool, existing_feedback=None,
     Will return an ideal non_answer guess before an ideal answer guess
 
     Unfortunately suffers from combinatorial explosion, O(n!).
+
+    find_exact_best_guess() was found to be largely unpractical through testing, with too
+    many likely, and diverse, worst case scenarios for even len(answer_pool) < 5, where
+    calc time > 60 sec.
     """
     ANSWERPOOL_SIZE_WARNING = 100
     if len(answer_pool) > ANSWERPOOL_SIZE_WARNING:
@@ -528,7 +532,7 @@ def store_guess_score(new_guess, new_score, filename):
 
 
 
-def fetch_official_answer_and_numb():
+def fetch_official_answer_and_id():
     """
     Opens a chrome browser to get the current dates wordle answer as set by the New York Times
     """
@@ -549,13 +553,32 @@ def fetch_official_answer_and_numb():
     return [ANSWER, wordle_iter]
 
 
-def show_result(guesses, turn, ANSWER):
-    print(f'Answer: {ANSWER}')
-    print(f'Guesses found: {guesses}')
-    print(f'Solved in {turn} turns')
+def get_attempt_text(guesses, answer, wordle_id=''):
 
+    """
+    takes feedback from each guess, and turns it into wordle colour blocks
+    """
 
+    green_square = '\U0001F7E9'
+    yellow_square = '\U0001F7E8'
+    gray_square = '\U00002B1C'
 
+    score = len(guesses)
+    if wordle_id != '':
+        wordle_id = ' ' + str(wordle_id) + ','
+    text = f'WordleBot{wordle_id} {score}/6'
+
+    for guess in guesses:
+        f = get_guess_feedback(guess, answer)
+        text += '\n'
+        for pos in range(0, 5):
+            if f.greens[pos]:
+                text += green_square
+            elif f.yellows[pos]:
+                text += yellow_square
+            else:
+                text += gray_square
+    return text
 
 
 """
