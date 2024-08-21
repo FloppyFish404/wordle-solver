@@ -1,7 +1,7 @@
 import lib
 import random
 import logging
-
+import sys
 
 def main(): 
 
@@ -9,8 +9,19 @@ def main():
 
     guess_pool = lib.get_all_words_list()
     answer_pool = lib.get_answer_list()
-    ANSWER = random.choice(answer_pool)
-    # ANSWER = lib.fetch_official_answer_and_numb()[0]
+
+    if any(arg in {'random', 'r'} for arg in sys.argv):
+        ANSWER = random.choice(answer_pool)
+        wordle_id = ''
+    elif len(sys.argv) > 1:
+        if sys.argv[1] in answer_pool:
+            ANSWER = sys.argv[1]
+            wordle_id = ''
+        else:
+            raise ValueError('Please provide a valid 5 letter word to solve. '
+                             f'{sys.argv[1]} is not a valid word.')
+    else:
+        ANSWER, wordle_id = lib.fetch_official_answer_and_id()
     logging.info(f'ANSWER IS {ANSWER}')
 
     turn = 0
@@ -34,8 +45,12 @@ def main():
         logging.info(f'{vars(feedback)}')
         logging.info(f'possible answers {answer_pool}')
         logging.info(f'guesses {guesses}\n')
-    lib.show_result(guesses, turn, ANSWER)
-
+    text = lib.get_attempt_text(guesses, ANSWER, wordle_id)
+    print(f'{text}\nAnswer was {ANSWER}, guessed {guesses}\n')
 
 if __name__ == '__main__':
     main()
+
+# 6 turn answers:
+#       keyed
+#       gazed
