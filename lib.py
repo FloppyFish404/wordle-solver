@@ -4,18 +4,17 @@ import math
 from collections import Counter
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver import ActionChains
+# from selenium.webdriver.common.keys import Keys
+# from selenium.webdriver.support.ui import WebDriverWait
+# from selenium.webdriver.common.by import By
+# from selenium.webdriver.support import expected_conditions as EC
+# from selenium.common.exceptions import TimeoutException
+# from selenium.webdriver import ActionChains
+# from datetime import datetime
 from bs4 import BeautifulSoup
-from datetime import datetime
 import json
 import time
 
-# logging.basicConfig(level=logging.WARNING, format='%(message)s')
 logger = logging.getLogger(__name__)
 
 URL = ("https://gist.githubusercontent.com/cfreshman/"
@@ -103,14 +102,17 @@ class Feedback:
                     yel_union.discard(long_yel[0] * length)
         return yel_union
 
-    def is_same(self, feedback):
-        if self.greens != feedback.greens:
-            return False
-        if any(set(y1) != set(y2) for y1, y2 in zip(self.yellows, feedback.yellows)):
-            return False
-        if self.grays != feedback.grays:
-            return False
-        return True
+    def __eq__(self, other):
+        return (self.greens == other.greens and
+                all(set(y1) == set(y2) for y1, y2 in zip(self.yellows, other.yellows)) and
+                self.grays == other.grays)
+
+    def __hash__(self):
+        return hash((
+            tuple(self.greens),
+            tuple(frozenset(y) for y in self.yellows),
+            frozenset(self.grays)
+        ))
 
 
 def get_guess_feedback(guess, answer) -> Feedback:
@@ -227,7 +229,7 @@ class CommonLetters:
 
         Most likely usage is to opimise guess_pool for find_best_guess()
         which is computationally expensive as it utilises recursive function
-        turns_until_solved() # O(?) time?
+        turns_until_solved() # O(n!) time
         """
         guess_scores = Counter()
         for guess in guess_pool:
@@ -451,7 +453,7 @@ def turns_until_solved(guess, guess_pool, answer_pool,
 
             # APPEND TO FEEDBACK COUNTER
             for f in feedbacks:
-                if f.is_same(new_feedback):
+                if f == new_feedback:
                     feedbacks[f] += 1
                     break
             else:
@@ -554,7 +556,6 @@ def fetch_official_answer_and_id():
 
 
 def get_attempt_text(guesses, answer, wordle_id=''):
-
     """
     takes feedback from each guess, and turns it into wordle colour blocks
     """
@@ -583,16 +584,23 @@ def get_attempt_text(guesses, answer, wordle_id=''):
 
 """
 build up the main function
-- function to retrieve from the official wordle site. 
 - more front end stuff, for nicer display % bar?
 - memoisation for performance?
 
 
 TO DO:
 implement find_best_guess for multiple answerpool sizes
-TEST THE SHIT OUT OF THIS
-change Feedback.is_same into __eq__ and __hash__
 implemenet memoisation
-implement options for main, evaluate a guess,
 change code to work for answers list
+
+6 turn answers:
+      keyed
+      gazed
+
+make it user friendly
+	- command line input for word best?
+stress test, get some metrics to brag about
+write a README.md
+
 """
+

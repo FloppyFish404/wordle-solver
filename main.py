@@ -5,6 +5,7 @@ import sys
 
 def main(): 
 
+    # Switch between 'level=logging.WARNING' | 'level=logging.INFO'
     logging.basicConfig(level=logging.INFO, format='%(message)s')
 
     guess_pool = lib.get_all_words_list()
@@ -50,7 +51,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# 6 turn answers:
-#       keyed
-#       gazed

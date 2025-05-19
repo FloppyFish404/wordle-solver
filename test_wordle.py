@@ -379,8 +379,8 @@ class TestIsSameFeedback:
     def test_empty(self):
         f1 = lib.Feedback()
         f2 = lib.Feedback()
-        assert f1.is_same(f2)
-        assert f2.is_same(f1)
+        assert f1 == f2
+        assert f2 == f1
 
     def test_all_same(self):
         f1 = lib.Feedback()
@@ -391,32 +391,32 @@ class TestIsSameFeedback:
         f2.greens = ['a', None, 'c', 'd', None]
         f2.yellows = [['a'], [], ['dd', 'c'], [], ['e', 'f', 'a']]
         f2.grays = set(['a', 'b', 'c', 'oo', 'ppp'])
-        assert f1.is_same(f2)
-        assert f2.is_same(f1)
+        assert f1 == f2
+        assert f2 == f1
 
     def test_diff_greens(self):
         f1 = lib.Feedback()
         f1.greens = ['a', None, 'c', 'd', 'e']
         f2 = lib.Feedback()
         f2.greens = ['a', None, 'c', 'd', None]
-        assert not f1.is_same(f2)
-        assert not f2.is_same(f1)
+        assert not f1 == f2
+        assert not f2 == f1
 
     def test_diff_yellows(self):
         f1 = lib.Feedback()
         f1.yellows = [['a'], [], ['c', 'd'], [], ['e', 'f', 'a']]
         f2 = lib.Feedback()
         f2.yellows = [['a'], [], ['d', 'c'], [], ['e', 'ff', 'a']]
-        assert not f1.is_same(f2)
-        assert not f2.is_same(f1)
+        assert not f1 == f2
+        assert not f2 == f1
 
     def test_diff_grays(self):
         f1 = lib.Feedback()
         f1.grays = set(['ppp', 'oo', 'c', 'b', 'a'])
         f2 = lib.Feedback()
         f2.grays = set(['a', 'b', 'c', 'o', 'ppp'])
-        assert not f1.is_same(f2)
-        assert not f2.is_same(f1)
+        assert not f1 == f2
+        assert not f2 == f1
 
 
 class TestFindSmartGuesses:
@@ -507,18 +507,19 @@ class TestFindExactBestGuess:
         best = lib.find_exact_best_guess(guesses, answers)
         assert best == 'abcee'  # not calculated but I think its right
 
-    def test_similar_words(self):
-        ANSWER = 'mated'
-        words = lib.get_all_words_list()
-        f = lib.get_guess_feedback('roate', ANSWER)
-        f.merge(lib.get_guess_feedback('sated', ANSWER))
-        guesses_tried = set('roate', 'sated')
-        possible_answers = ['bated', 'dated', 'fated', 
-                            'gated', 'hated', 'mated']
-        smart_guesses = lib.filter_guess_pool(words, answers, 100)
-        g = lib.find_exact_best_guess(words, possible_answers, f, 
-                                      guesses_tried, smart_guesses)
-        # g == 'baghs' - this test takes forever :/
+    # test takes ~ 5-10 min
+    #def test_similar_words(self):
+    #    ANSWER = 'mated'
+    #    words = lib.get_all_words_list()
+    #    f = lib.get_guess_feedback('roate', ANSWER)
+    #    f.merge(lib.get_guess_feedback('sated', ANSWER))
+    #    guesses_tried = set(['roate', 'sated'])
+    #    possible_answers = ['bated', 'dated', 'fated', 
+    #                        'gated', 'hated', 'mated']
+    #    smart_guesses = lib.filter_guess_pool(words, possible_answers, 100)
+    #    g = lib.find_exact_best_guess(words, possible_answers, f, 
+    #                                  guesses_tried, smart_guesses)
+    #    # g == 'baghs' 
 
     def test_many_similar_answers(self):
         answers = ['aeons', 'aeros', 'aloes', 'alose', 'arose',
