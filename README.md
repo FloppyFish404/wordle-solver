@@ -2,8 +2,9 @@
 
 WordleBot is an intelligent Wordle solver and analyzer. It efficiently simulates solving the daily Wordle using feedback logic, optimised guessing strategies, and recursive search algorithms.
 
-**Performance metrics (full answer pool):**
-- Mean turns to solve:   **3.693**
+**Performance metrics**
+- Solves any word in 6 turns or less
+- Mean turns to solve:   **3.69**  (average human score is 3.92)
 - Min solve time:        **0.002 sec**
 - Median solve time:     **0.524 sec**
 - Max solve time:        **10.325 sec**
@@ -27,8 +28,6 @@ WordleBot is an intelligent Wordle solver and analyzer. It efficiently simulates
 ![Solve Time Histogram](solve_times_histogram.png)
 
 ---
-
-## 🚀 Usage
 
 ### 🐍 Run Solver
 
