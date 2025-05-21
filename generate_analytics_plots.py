@@ -20,7 +20,7 @@ plt.xlabel('Solve Time (seconds)')
 plt.ylabel('Frequency')
 plt.title('Distribution of Solve Times')
 plt.xlim(left=0)  
-plt.savefig('solve_times_histogram.png')
+# plt.savefig('solve_times_histogram.png')
 
 
 # ---- Plot 2: Bar graph of number of guesses ----
@@ -32,17 +32,23 @@ plt.xlabel('Number of Guesses to Solve')
 plt.ylabel('Frequency')
 plt.title('Distribution of Guesses per Solve')
 plt.xticks(x)
-plt.savefig('no_guesses_bar_chart.png')
+# plt.savefig('no_guesses_bar_chart.png')
 
 
 # Show both plots
-plt.show()
+# plt.show()
 
 average_solve_time = sum(all_times) / len(all_times)
-print(average_solve_time)
+print('mean solve time:', average_solve_time)
+print()
+
+av_time = sorted(all_times)
+print('min solve time:', av_time[0])
+print('median solve time:', av_time[len(av_time)//2])
+print('max solve time', av_time[len(av_time)-1])
 
 no_entries = sum(no_guesses.values())
 total_turns = sum([k*v for k, v in no_guesses.items()])
 average_no_turns = total_turns / no_entries
 print(no_guesses)
-print(average_no_turns)
+print('mean turns:', average_no_turns)
