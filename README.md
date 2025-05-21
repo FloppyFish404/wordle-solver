@@ -32,6 +32,7 @@ WordleBot is an intelligent Wordle solver and analyzer. It efficiently simulates
 ### 🐍 Run Solver
 
 ```bash
+pip install -r requirements.txt
 python main.py               # Fetch and solve the official daily Wordle
 python main.py random        # Solve a random word 
 python main.py <5-letter>    # Solve a specific word (e.g. "crane")
